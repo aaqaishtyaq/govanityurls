@@ -1,0 +1,5 @@
+# gitignore
+
+govanityurls
+bin/
+gh-pages/
