@@ -1,7 +1,12 @@
 name: Generate
+
 on:
   push:
   pull_request:
+
+env:
+  DOMAIN_NAME: go.aaqa.dev
+
 jobs:
   build:
     name: Build
