@@ -1,0 +1,65 @@
+name: Generate
+on:
+  push:
+  pull_request:
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.18
+      - name: Build
+        run: |
+          go build
+          ./govanityurls
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: gh-pages
+          path: gh-pages/*
+          if-no-files-found: error
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    concurrency:
+      group: "gh-pages-deploy"
+      cancel-in-progress: false
+    needs:
+      - build
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout
+        run: |
+          set -euo pipefail
+          git clone -b gh-pages https://${GITHUB_REPOSITORY_OWNER}:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY} dist || (
+            set -euo pipefail
+            mkdir -p dist
+            cd dist
+            git init
+            git checkout -b gh-pages
+            git remote add origin https://${GITHUB_REPOSITORY_OWNER}:${{ secrets.GITHUB_TOKEN }}@github.com/${GITHUB_REPOSITORY}
+          )
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: gh-pages
+          path: artifacts
+      - name: Deploy
+        run: |
+          set -euo pipefail
+          rsync -az --exclude=.git --delete ./artifacts/ ./dist/
+          cd dist
+          git config user.name "GitHub Actions"
+          git config user.email noreply@github.com
+          git add .
+          if ! git diff-index --quiet HEAD --; then
+            git commit -m "Publish"
+            git push --set-upstream --force origin gh-pages
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
